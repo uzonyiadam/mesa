@@ -1,6 +1,8 @@
 import numpy as np
 
+from examples.epidemic_model.utils import inf, rec, susc
 from mesa import Agent, Model
+from mesa.datacollection import DataCollector
 from mesa.space import MultiGrid
 from mesa.time import RandomActivation
 
@@ -11,18 +13,35 @@ class EpidemicAgent(Agent):
         self.state = 0
 
     def step(self):
-        other_agent = self.random.choice(self.model.schedule.agents)
-        if self.state == 1:
-            # Infection
-            if np.random.rand() < 0.2:
+        self.move()
+        self.epi()
+
+    def move(self):
+        possible_steps = self.model.grid.get_neighborhood(self.pos, moore=True, include_center=False, radius=5)
+        new_position = self.random.choice(possible_steps)
+        self.model.grid.move_agent(self, new_position)
+
+    def epi(self):
+        agents_in_the_same_cell = self.model.grid.get_cell_list_contents([self.pos])
+        # Infection
+        if len(agents_in_the_same_cell) > 1:
+            other_agent = self.random.choice(agents_in_the_same_cell)
+            self.infect(other_agent)
+        # Recovery
+        self.recover()
+
+    def recover(self):
+        recovery_prob = 0.2
+        if self.state == 1 and np.random.rand() < recovery_prob:
+            self.state = 2
+
+    def infect(self, other_agent):
+        infection_prob = 0.75
+        if self.state == 1 and other_agent.state == 0:
+            if np.random.rand() < infection_prob:
                 other_agent.state = 1
-
-            # Recovery
-            if np.random.rand() < 0.3:
-                self.state = 2
-
-        elif other_agent.state == 1:
-            if np.random.rand() < 0.2:
+        elif other_agent.state == 1 and self.state == 0:
+            if np.random.rand() < infection_prob:
                 self.state = 1
 
 
@@ -31,7 +50,6 @@ class EpidemicModel(Model):
         self.num_agents = num_agents
         self.grid = MultiGrid(width, height, True)
         self.schedule = RandomActivation(self)
-        self.time_series = []
 
         # Create agents
         for i in range(self.num_agents):
@@ -47,14 +65,11 @@ class EpidemicModel(Model):
         agent = self.random.choice(self.schedule.agents)
         agent.state = 1
 
+        self.data_collection = DataCollector(
+            model_reporters={"Susceptibles": susc, "Infecteds": inf, "Recovereds": rec},
+            agent_reporters={"State": "state"}
+        )
+
     def step(self):
+        self.data_collection.collect(self)
         self.schedule.step()
-        susc, inf, rec = 0, 0, 0
-        for agent in self.schedule.agents:
-            if agent.state == 0:
-                susc += 1
-            elif agent.state == 1:
-                inf += 1
-            else:
-                rec += 1
-        self.time_series.append([susc, inf, rec])
