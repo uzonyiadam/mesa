@@ -1,10 +1,6 @@
 import numpy as np
 
-from examples.epidemic_model.utils import inf, rec, susc
-from mesa import Agent, Model
-from mesa.datacollection import DataCollector
-from mesa.space import MultiGrid
-from mesa.time import RandomActivation
+from mesa import Agent
 
 
 class EpidemicAgent(Agent):
@@ -43,33 +39,3 @@ class EpidemicAgent(Agent):
         elif other_agent.state == 1 and self.state == 0:
             if np.random.rand() < infection_prob:
                 self.state = 1
-
-
-class EpidemicModel(Model):
-    def __init__(self, num_agents, width, height):
-        self.num_agents = num_agents
-        self.grid = MultiGrid(width, height, True)
-        self.schedule = RandomActivation(self)
-
-        # Create agents
-        for i in range(self.num_agents):
-            a = EpidemicAgent(i, self)
-            self.schedule.add(a)
-
-            # Add agent to a random grid cell
-            x = self.random.randrange(self.grid.width)
-            y = self.random.randrange(self.grid.height)
-            self.grid.place_agent(a, (x, y))
-
-        # Pick one infected
-        agent = self.random.choice(self.schedule.agents)
-        agent.state = 1
-
-        self.data_collection = DataCollector(
-            model_reporters={"Susceptibles": susc, "Infecteds": inf, "Recovereds": rec},
-            agent_reporters={"State": "state"}
-        )
-
-    def step(self):
-        self.data_collection.collect(self)
-        self.schedule.step()

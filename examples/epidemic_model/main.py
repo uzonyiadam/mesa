@@ -1,6 +1,6 @@
 import matplotlib.pyplot as plt
 
-from examples.epidemic_model.epidemic import EpidemicModel
+from examples.epidemic_model.source.model import EpidemicModel
 
 
 def main():
@@ -10,10 +10,6 @@ def main():
     timespan = 100
     for i in range(timespan):
         model.step()
-
-    states = []
-    for agent in model.schedule.agents:
-        states.append(agent.state)
 
     states = model.data_collection.get_model_vars_dataframe()
     states.plot()
